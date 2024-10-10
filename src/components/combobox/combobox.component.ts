@@ -224,7 +224,7 @@ export default class SlCombobox extends ShoelaceElement implements ShoelaceFormC
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, no-new
     new (SlimSelect as unknown as typeof SlimSelect.default)({
-      select: this.shadowRoot?.querySelector('select'),
+      select: this.shadowRoot?.querySelector('select') as HTMLElement,
     });
 
   }
