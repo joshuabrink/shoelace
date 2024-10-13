@@ -102,12 +102,14 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
   @state() displayLabel = '';
   @state() currentOption: SlOption;
   @state() selectedOptions: SlOption[] = [];
-  @state() selectedStartDate = startOfToday();
-  @state() selectedEndDate: Date = startOfToday();
   @state() calendarDate: Date = startOfToday();
-  @state() isSelecting: boolean = false;
+  @state() selectedEndDate: string | null = null;
+  @state() selectedStartDate: string | null = null;
+  @state() isSelectingRange: boolean = false;
 
 
+
+  @property() dateFormat: string = "dd-MM-yyyy";
   /** The name of the select, submitted as a name/value pair with form data. */
   @property() name = '';
 
@@ -606,18 +608,14 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
       option.selected = !option.selected;
     }
 
-    const day = parse(option.value, "dd-MM-yyyy", new Date());
-
-    if (this.isSelecting) {
-      this.selectedEndDate = day;
+    if (this.isSelectingRange) {
+      this.selectedEndDate = option.value;
     } else {
-      this.selectedStartDate = day;
-      this.selectedEndDate = day;
+      this.selectedStartDate = option.value;
+      this.selectedEndDate = option.value;
     }
-    this.isSelecting = !this.isSelecting;
-    if (isSameMonth(day, this.calendarDate)) {
-      this.calendarDate = day
-    }
+
+    this.isSelectingRange = !this.isSelectingRange; 
 
     this.selectionChanged();
   }
