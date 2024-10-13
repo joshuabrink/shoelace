@@ -778,24 +778,50 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
   }
 
   renderCalendar() {
+    const monthStart: Date = startOfMonth(this.calendarDate);
+    const monthEnd: Date = endOfMonth(this.calendarDate);
+    const calendarStart = startOfWeek(monthStart);
+    const calendarEnd = endOfWeek(monthEnd);
 
-    // const onClickDay = (day) => {
-    //   const dateString = format(day, "dd-MM-yyyy")
-    //   this.inputValue = dateString;
-    //   if (this._isSelecting) {
-    //     this.selectedEndDate = day;
-    //   } else {
-    //     this.selectedStartDate = day;
-    //     this.selectedEndDate = day;
-    //   }
-    //   this._isSelecting = !this._isSelecting;
-    //   if (isSameMonth(day, this._calendarDate)) {
-    //     this._calendarDate = parse(this.inputValue, "dd-MM-yyyy", new Date())
-    //   }
-    // }
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
+    // const optionValues = this.selectedOptions.map(o => o.value);
+    // console.log(optionValues)
+    const selectedStartDate = this.selectedStartDate ? parse(this.selectedStartDate, this.dateFormat, new Date()) : null
 
+    const selectedEndDate = this.selectedEndDate ? parse(this.selectedEndDate, this.dateFormat, new Date()) : null
 
+    const onMouseEnter = (e: MouseEvent) => {
+      if (this.isSelectingRange) {
+        const option = e.target as SlOption;
+        this.selectedEndDate = option.value;
+      }
+    }
+
+    return html`
+          ${days.map(day => {
+
+            const isBetweenSelected = selectedStartDate && selectedEndDate && isWithinInterval(day, { start: selectedStartDate, end: selectedEndDate });
+            const isSelected = (selectedStartDate && isEqual(day, selectedStartDate)) || (selectedEndDate && isEqual(day, selectedEndDate));
+
+            return html`
+              <sl-option
+                ?selected=${isSelected}
+                @mouseenter=${onMouseEnter}
+                .value=${format(day, this.dateFormat)}
+                class="date-picker__cell
+                ${isSelected ? 'selected' : ''} 
+                ${isBetweenSelected ? 'in-selected-range' : ''} 
+                ${isToday(day) ? 'today' : ''} 
+                ${!isSameMonth(day, this.calendarDate) ? 'other-month' : ''}
+                "
+              >
+                ${format(day, 'd')}
+            </sl-option>`;
+          }
+          )}
+        </div>
+      `;
   }
 
 
@@ -810,18 +836,6 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
     const prevEnabled = true;
     const nextEnabled = true;
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthStart: Date = startOfMonth(this.calendarDate);
-    const monthEnd: Date = endOfMonth(this.calendarDate);
-    const calendarStart = startOfWeek(monthStart);
-    const calendarEnd = endOfWeek(monthEnd);
-
-    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-    const onMouseEnter = (day: Date) => {
-      if (this.isSelecting) {
-        this.selectedEndDate = day
-      }
-    }
 
     return html`
       <div
@@ -994,30 +1008,7 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
               @mouseup=${this.handleOptionClick}
               @slotchange=${this.handleDefaultSlotChange}
             >
-            
-          ${days.map(day => {
-          const isBetweenSelected = isWithinInterval(day, { start: this.selectedStartDate, end: this.selectedEndDate });
-          const isSelected = isEqual(day, this.selectedStartDate) || isEqual(day, this.selectedEndDate);
-
-          return html`
-              <sl-option
-                @mouseenter=${{
-              handleEvent: () => onMouseEnter(day),
-            }}
-                .value=${format(day, "dd-MM-yyyy")}
-                class="date-picker__cell
-                ${isSelected ? 'selected' : ''}
-                ${isBetweenSelected ? 'in-selected-range' : ''}
-                ${isToday(day) ? 'today' : ''}
-                ${!isSameMonth(day, this.calendarDate) ? 'other-month' : ''}
-                "
-              >
-                ${format(day, 'd')}
-            </sl-option>`;
-        }
-        )}
-        </div>
-      
+            ${this.renderCalendar()}
               <!-- <slot></slot> -->
 
             </div>
