@@ -210,7 +210,7 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
         removable
         @sl-remove=${(event: SlRemoveEvent) => this.handleTagRemove(event, option)}
       >
-        ${option.getTextLabel()}
+        ${option.value}
       </sl-tag>
     `;
   };
