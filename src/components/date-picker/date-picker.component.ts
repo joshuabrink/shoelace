@@ -16,13 +16,15 @@ import componentStyles from '../../styles/component.styles.js';
 import formControlStyles from '../../styles/form-control.styles.js';
 import ShoelaceElement from '../../internal/shoelace-element.js';
 import SlIcon from '../icon/icon.component.js';
+import SlOption from '../option/option.component.js';
 import SlPopup from '../popup/popup.component.js';
 import SlTag from '../tag/tag.component.js';
 import styles from './date-picker.styles.js';
 import type { CSSResultGroup, TemplateResult } from 'lit';
 import type { ShoelaceFormControl } from '../../internal/shoelace-element.js';
 import type { SlRemoveEvent } from '../../events/sl-remove.js';
-import type SlOption from '../option/option.component.js';
+
+
 
 /**
  * @summary Selects allow you to choose items from a menu of predefined options.
@@ -33,6 +35,7 @@ import type SlOption from '../option/option.component.js';
  * @dependency sl-icon
  * @dependency sl-popup
  * @dependency sl-tag
+ * @dependency sl-option
  *
  * @slot - The listbox options. Must be `<sl-option>` elements. You can use `<sl-divider>` to group items visually.
  * @slot label - The input's label. Alternatively, you can use the `label` attribute.
@@ -76,7 +79,8 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
   static dependencies = {
     'sl-icon': SlIcon,
     'sl-popup': SlPopup,
-    'sl-tag': SlTag
+    'sl-tag': SlTag,
+    'sl-option': SlOption
   };
 
   private readonly formControlController = new FormControlController(this, {
