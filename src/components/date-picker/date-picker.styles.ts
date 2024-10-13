@@ -344,7 +344,16 @@ export default css`
     cursor: pointer;
   }
 
-  .date-picker__cell.selected {
+  .date-picker__cell::part(base) {
+    padding: 0;
+    height: 100%;
+  }
+
+  .date-picker__cell::part(checked-icon) {
+    display: none;
+  }
+
+  .date-picker__cell[selected]::part(base) {
     background-color: var(--sl-color-primary-600);
     font-weight: var(--sl-font-weight-semibold);
     color: var(--sl-color-neutral-0);
@@ -363,12 +372,12 @@ export default css`
     background-color: var(--sl-color-primary-100);
   }
 
-  .in-selected-range:nth-child(1 of .in-selected-range) {
+  .in-selected-range:nth-child(1 of .in-selected-range)::part(base) {
     border-top-left-radius: var(--sl-input-border-radius-medium);
     border-bottom-left-radius: var(--sl-input-border-radius-medium);
   }
 
-  .in-selected-range:nth-last-child(1 of .in-selected-range) {
+  .in-selected-range:nth-last-child(1 of .in-selected-range)::part(base) {
     border-top-right-radius: var(--sl-input-border-radius-medium);
     border-bottom-right-radius: var(--sl-input-border-radius-medium);
   }
