@@ -483,7 +483,6 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
 
     if (option && !option.disabled) {
       if (this.multiple) {
-
         this.toggleOptionSelection(option);
       } else {
         this.setSelectedOptions(option);
@@ -506,21 +505,6 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
       }
     }
   }
-
-  // private onClickDay(day: Date) {
-  //   const dateString = format(day, "dd-MM-yyyy")
-  //   this.value = dateString;
-  //   if (this.isSelecting) {
-  //     this.selectedEndDate = day;
-  //   } else {
-  //     this.selectedStartDate = day;
-  //     this.selectedEndDate = day;
-  //   }
-  //   this.isSelecting = !this.isSelecting;
-  //   if (isSameMonth(day, this.calendarDate)) {
-  //     this.calendarDate = parse(this.value, "dd-MM-yyyy", new Date())
-  //   }
-  // }
 
   private handleDefaultSlotChange() {
     const allOptions = this.getAllOptions();
