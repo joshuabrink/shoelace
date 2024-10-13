@@ -539,12 +539,12 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
 
   // Gets an array of all <sl-option> elements
   private getAllOptions() {
-    return [...this.querySelectorAll<SlOption>('sl-option')];
+    return [...this.renderRoot.querySelectorAll<SlOption>('sl-option') ?? []];
   }
 
   // Gets the first <sl-option> element
   private getFirstOption() {
-    return this.querySelector<SlOption>('sl-option');
+    return this.renderRoot.querySelector<SlOption>('sl-option');
   }
 
   // Sets the current option, which is the option the user is currently interacting with (e.g. via keyboard). Only one
