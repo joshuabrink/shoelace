@@ -589,6 +589,9 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
     if (force === true || force === false) {
       option.selected = force;
     } else {
+      if (this.selectedOptions.length === 2) {
+        this.setSelectedOptions([]);
+      }
       option.selected = !option.selected;
     }
 
