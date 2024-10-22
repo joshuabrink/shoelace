@@ -1,184 +1,178 @@
-import { animateTo, stopAnimations } from '../../internal/animate.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { defaultValue } from '../../internal/default-value.js';
-import { eachDayOfInterval, endOfMonth, endOfWeek, format, isEqual, isSameMonth, isToday, isWithinInterval, parse, setMonth, startOfMonth, startOfToday, startOfWeek } from 'date-fns';
 import { FormControlController } from '../../internal/form.js';
-import { getAnimation, setDefaultAnimation } from '../../utilities/animation-registry.js';
-import { HasSlotController } from '../../internal/slot.js';
 import { html } from 'lit';
 import { LocalizeController } from '../../utilities/localize.js';
 import { property, query, state } from 'lit/decorators.js';
-import { scrollIntoView } from '../../internal/scroll.js';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { waitForEvent } from '../../internal/event.js';
 import { watch } from '../../internal/watch.js';
 import componentStyles from '../../styles/component.styles.js';
-import formControlStyles from '../../styles/form-control.styles.js';
 import ShoelaceElement from '../../internal/shoelace-element.js';
+import SlButtonGroup from '../button-group/button-group.component.js';
+import SlDropdown from '../dropdown/dropdown.component.js';
+import SlFormatDate from '../format-date/format-date.component.js';
 import SlIcon from '../icon/icon.component.js';
-import SlOption from '../option/option.component.js';
-import SlPopup from '../popup/popup.component.js';
+import SlIconButton from '../icon-button/icon-button.component.js';
+import SlInput from '../input/input.component.js';
 import SlTag from '../tag/tag.component.js';
 import styles from './date-picker.styles.js';
-import type { CSSResultGroup, TemplateResult } from 'lit';
+import type { CSSResultGroup } from 'lit';
 import type { ShoelaceFormControl } from '../../internal/shoelace-element.js';
+import type { SlChangeEvent } from '../../events/sl-change.js';
+import type { SlInputEvent } from '../../events/sl-input.js';
 import type { SlRemoveEvent } from '../../events/sl-remove.js';
 
-
-
 /**
- * @summary Selects allow you to choose items from a menu of predefined options.
- * @documentation https://shoelace.style/components/select
+ * @summary Date pickers allow the user to select a date or date range.
+ * @documentation https://shoelace.style/components/date-picker
  * @status stable
  * @since 2.0
  *
- * @dependency sl-icon
- * @dependency sl-popup
+ * @dependency sl-icon-button
+ * @dependency sl-button-group
+ * @dependency sl-dropdown
+ * @dependency sl-input
  * @dependency sl-tag
- * @dependency sl-option
+ * @dependency sl-format-date
  *
- * @slot - The listbox options. Must be `<sl-option>` elements. You can use `<sl-divider>` to group items visually.
- * @slot label - The input's label. Alternatively, you can use the `label` attribute.
- * @slot prefix - Used to prepend a presentational icon or similar element to the combobox.
- * @slot suffix - Used to append a presentational icon or similar element to the combobox.
- * @slot clear-icon - An icon to use in lieu of the default clear icon.
- * @slot expand-icon - The icon to show when the control is expanded and collapsed. Rotates on open and close.
- * @slot help-text - Text that describes how to use the input. Alternatively, you can use the `help-text` attribute.
+ * @slot label - The color picker's form label. Alternatively, you can use the `label` attribute.
  *
- * @event sl-change - Emitted when the control's value changes.
- * @event sl-clear - Emitted when the control's value is cleared.
- * @event sl-input - Emitted when the control receives input.
- * @event sl-focus - Emitted when the control gains focus.
- * @event sl-blur - Emitted when the control loses focus.
- * @event sl-show - Emitted when the select's menu opens.
- * @event sl-after-show - Emitted after the select's menu opens and all animations are complete.
- * @event sl-hide - Emitted when the select's menu closes.
- * @event sl-after-hide - Emitted after the select's menu closes and all animations are complete.
+ * @event sl-blur - Emitted when the color picker loses focus.
+ * @event sl-change - Emitted when the color picker's value changes.
+ * @event sl-focus - Emitted when the color picker receives focus.
+ * @event sl-input - Emitted when the color picker receives input.
  * @event sl-invalid - Emitted when the form control has been checked for validity and its constraints aren't satisfied.
  *
- * @csspart form-control - The form control that wraps the label, input, and help text.
- * @csspart form-control-label - The label's wrapper.
- * @csspart form-control-input - The select's wrapper.
- * @csspart form-control-help-text - The help text's wrapper.
- * @csspart combobox - The container the wraps the prefix, suffix, combobox, clear icon, and expand button.
- * @csspart prefix - The container that wraps the prefix slot.
- * @csspart suffix - The container that wraps the suffix slot.
- * @csspart display-input - The element that displays the selected option's label, an `<input>` element.
- * @csspart listbox - The listbox container where options are slotted.
- * @csspart tags - The container that houses option tags when `multiselect` is used.
- * @csspart tag - The individual tags that represent each multiselect option.
- * @csspart tag__base - The tag's base part.
- * @csspart tag__content - The tag's content part.
- * @csspart tag__remove-button - The tag's remove button.
- * @csspart tag__remove-button__base - The tag's remove button base part.
- * @csspart clear-button - The clear button.
- * @csspart expand-icon - The container that wraps the expand icon.
+ * @csspart base - The component's base wrapper.
+ * @csspart trigger - The date picker's dropdown trigger.
+ * @csspart calendar - The date picker's calendar.
+ * @csspart input - The text input.
+ *
+ * @cssproperty --calendar-width - The width of the calendar grid.
+ * @cssproperty --calendar-height - The height of the color grid.
  */
 export default class SlDatePicker extends ShoelaceElement implements ShoelaceFormControl {
-  static styles: CSSResultGroup = [componentStyles, formControlStyles, styles];
+  static styles: CSSResultGroup = [componentStyles, styles];
+
   static dependencies = {
+    'sl-button-group': SlButtonGroup,
+    'sl-icon-button': SlIconButton,
+    'sl-dropdown': SlDropdown,
     'sl-icon': SlIcon,
-    'sl-popup': SlPopup,
-    'sl-tag': SlTag,
-    'sl-option': SlOption
+    'sl-input': SlInput,
+    'sl-format-date': SlFormatDate,
+    'sl-tag': SlTag
   };
 
-  private readonly formControlController = new FormControlController(this, {
-    assumeInteractionOn: ['sl-blur', 'sl-input']
-  });
-  private readonly hasSlotController = new HasSlotController(this, 'help-text', 'label');
+  private readonly formControlController = new FormControlController(this);
+  // private isSafeValue = false;
   private readonly localize = new LocalizeController(this);
-  private typeToSelectString = '';
-  private typeToSelectTimeout: number;
-  private closeWatcher: CloseWatcher | null;
 
-  @query('.date-picker') popup: SlPopup;
-  @query('.date-picker__combobox') combobox: HTMLSlotElement;
-  @query('.date-picker__display-input') displayInput: HTMLInputElement;
-  @query('.date-picker__value-input') valueInput: HTMLInputElement;
-  @query('.date-picker__listbox') listbox: HTMLSlotElement;
+  @query('[part~="base"]') base: HTMLElement;
+  @query('[part~="trigger"]') trigger: SlIconButton;
+  @query('[part~="input"]') input: SlInput;
+  @query('.date-picker__dropdown') dropdown: SlDropdown;
+  @query('.date-picker__previous-month') previousMonth: HTMLButtonElement;
+  @query('.date-picker__next-month') nextMonth: HTMLButtonElement;
+  @query('.month-button-group') monthButtonGroup: SlButtonGroup;
 
   @state() private hasFocus = false;
-  @state() displayLabel = '';
-  @state() currentOption: SlOption;
-  @state() selectedOptions: SlOption[] = [];
-  @state() calendarDate: Date = startOfToday();
-  @state() selectedEndDate: string | null = null;
-  @state() selectedStartDate: string | null = null;
-  @state() isSelectingRange: boolean = false;
+  @state() private inputValue = '';
+  @state() private selectedDays: Date[] = [];
+  @state() private isSelectingRange: boolean = false;
+  @state() private currentDay: HTMLButtonElement;
 
+  @property({
+    type: Boolean,
+    reflect: true
+  })
+  dual = false;
 
+  @property() private mode: 'single' | 'multiple' | 'range' = 'single';
+  @property() calendarDate: Date = new Date();
 
-  @property() dateFormat: string = "dd-MM-yyyy";
-  /** The name of the select, submitted as a name/value pair with form data. */
-  @property() name = '';
+  /** The format for displaying the weekday. */
+  @property() weekday: 'narrow' | 'short' | 'long';
+
+  /** The format for displaying the era. */
+  @property() era: 'narrow' | 'short' | 'long';
+
+  /** The format for displaying the year. */
+  @property() year: 'numeric' | '2-digit';
+
+  /** The format for displaying the month. */
+  @property() month: 'numeric' | '2-digit' | 'narrow' | 'short' | 'long';
+
+  /** The format for displaying the day. */
+  @property() day: 'numeric' | '2-digit';
+
+  /** The format for displaying the hour. */
+  @property() hour: 'numeric' | '2-digit';
+
+  /** The format for displaying the minute. */
+  @property() minute: 'numeric' | '2-digit';
+
+  /** The format for displaying the second. */
+  @property() second: 'numeric' | '2-digit';
+
+  /** The format for displaying the time. */
+  @property({ attribute: 'time-zone-name' }) timeZoneName: 'short' | 'long';
+
+  /** The time zone to express the time in. */
+  @property({ attribute: 'time-zone' }) timeZone: string;
+
+  /** The format for displaying the hour. */
+  @property({ attribute: 'hour-format' }) hourFormat: 'auto' | '12' | '24' = 'auto';
+
+  get format(): Intl.DateTimeFormatOptions {
+    const hour12 = this.hourFormat === 'auto' ? undefined : this.hourFormat === '12';
+    return {
+      weekday: this.weekday,
+      era: this.era,
+      year: this.year,
+      month: this.month,
+      day: this.day,
+      hour: this.hour,
+      minute: this.minute,
+      second: this.second,
+      timeZoneName: this.timeZoneName,
+      timeZone: this.timeZone,
+      hour12: hour12
+    };
+  }
 
   /**
-   * The current value of the select, submitted as a name/value pair with form data. When `multiple` is enabled, the
-   * value attribute will be a space-delimited list of values based on the options selected, and the value property will
-   * be an array. **For this reason, values must not contain spaces.**
+   * The current value of the color picker. The value's format will vary based the `format` attribute. To get the value
+   * in a specific format, use the `getFormattedValue()` method. The value is submitted as a name/value pair with form
+   * data.
    */
   @property({
     converter: {
-      fromAttribute: (value: string) => value.split(' '),
-      toAttribute: (value: string[]) => value.join(' ')
+      fromAttribute: (value: string) => value.split(' – ').map(date => new Date(date)),
+      toAttribute: (value: Date[]) => value.join(' – ')
     }
   })
-  value: string | string[] = '';
+  value: Date | Date[] = new Date();
 
   /** The default value of the form control. Primarily used for resetting the form control. */
-  @defaultValue() defaultValue: string | string[] = '';
-
-  /** The select's size. */
-  @property({ reflect: true }) size: 'small' | 'medium' | 'large' = 'medium';
-
-  /** Placeholder text to show as a hint when the select is empty. */
-  @property() placeholder = '';
-
-  /** Allows more than one option to be selected. */
-  @property({ type: Boolean, reflect: true }) multiple = false;
+  @defaultValue() defaultValue = '';
 
   /**
-   * The maximum number of selected options to show when `multiple` is true. After the maximum, "+n" will be shown to
-   * indicate the number of additional items that are selected. Set to 0 to remove the limit.
+   * The color picker's label. This will not be displayed, but it will be announced by assistive devices. If you need to
+   * display HTML, you can use the `label` slot` instead.
    */
-  @property({ attribute: 'max-options-visible', type: Number }) maxOptionsVisible = 3;
-
-  /** Disables the select control. */
-  @property({ type: Boolean, reflect: true }) disabled = false;
-
-  /** Adds a clear button when the select is not empty. */
-  @property({ type: Boolean }) clearable = false;
-
-  /**
-   * Indicates whether or not the select is open. You can toggle this attribute to show and hide the menu, or you can
-   * use the `show()` and `hide()` methods and this attribute will reflect the select's open state.
-   */
-  @property({ type: Boolean, reflect: true }) open = false;
-
-  /**
-   * Enable this option to prevent the listbox from being clipped when the component is placed inside a container with
-   * `overflow: auto|scroll`. Hoisting uses a fixed positioning strategy that works in many, but not all, scenarios.
-   */
-  @property({ type: Boolean }) hoist = false;
-
-  /** Draws a filled select. */
-  @property({ type: Boolean, reflect: true }) filled = false;
-
-  /** Draws a pill-style select with rounded edges. */
-  @property({ type: Boolean, reflect: true }) pill = false;
-
-  /** The select's label. If you need to display HTML, use the `label` slot instead. */
   @property() label = '';
 
-  /**
-   * The preferred placement of the select's menu. Note that the actual placement may vary as needed to keep the listbox
-   * inside of the viewport.
-   */
-  @property({ reflect: true }) placement: 'top' | 'bottom' = 'bottom';
+  /** Renders the color picker inline rather than in a dropdown. */
+  @property({ type: Boolean, reflect: true }) inline = false;
 
-  /** The select's help text. If you need to display HTML, use the `help-text` slot instead. */
-  @property({ attribute: 'help-text' }) helpText = '';
+  /** Determines the size of the color picker's trigger. This has no effect on inline color pickers. */
+  @property({ reflect: true }) size: 'small' | 'medium' | 'large' = 'medium';
+
+  /** The name of the form control, submitted as a name/value pair with form data. */
+  @property() name = '';
+
+  /** Disables the color picker. */
+  @property({ type: Boolean, reflect: true }) disabled = false;
 
   /**
    * By default, form controls are associated with the nearest containing `<form>` element. This attribute allows you
@@ -187,348 +181,307 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
    */
   @property({ reflect: true }) form = '';
 
-  /** The select's required attribute. */
+  /** Makes the color picker a required field. */
   @property({ type: Boolean, reflect: true }) required = false;
-
-  /**
-   * A function that customizes the tags to be rendered when multiple=true. The first argument is the option, the second
-   * is the current tag's index.  The function should return either a Lit TemplateResult or a string containing trusted HTML of the symbol to render at
-   * the specified value.
-   */
-  @property() getTag: (option: SlOption, index: number) => TemplateResult | string | HTMLElement = option => {
-    return html`
-      <sl-tag
-        part="tag"
-        exportparts="
-              base:tag__base,
-              content:tag__content,
-              remove-button:tag__remove-button,
-              remove-button__base:tag__remove-button__base
-            "
-        ?pill=${this.pill}
-        size=${this.size}
-        removable
-        @sl-remove=${(event: SlRemoveEvent) => this.handleTagRemove(event, option)}
-      >
-        ${option.value}
-      </sl-tag>
-    `;
-  };
 
   /** Gets the validity state object */
   get validity() {
-    return this.valueInput.validity;
+    return this.input.validity;
+    // return true;
   }
 
   /** Gets the validation message */
   get validationMessage() {
-    return this.valueInput.validationMessage;
+    return this.input.validationMessage;
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-
-    // Because this is a form control, it shouldn't be opened initially
-    this.open = false;
+  constructor() {
+    super();
+    this.addEventListener('focusin', this.handleFocusIn);
+    this.addEventListener('focusout', this.handleFocusOut);
   }
 
-  private addOpenListeners() {
-    //
-    // Listen on the root node instead of the document in case the elements are inside a shadow root
-    //
-    // https://github.com/shoelace-style/shoelace/issues/1763
-    //
-    document.addEventListener('focusin', this.handleDocumentFocusIn);
-    document.addEventListener('keydown', this.handleDocumentKeyDown);
-    document.addEventListener('mousedown', this.handleDocumentMouseDown);
-
-    // If the component is rendered in a shadow root, we need to attach the focusin listener there too
-    if (this.getRootNode() !== document) {
-      this.getRootNode().addEventListener('focusin', this.handleDocumentFocusIn);
+  firstUpdated() {
+    if (Array.isArray(this.value)) {
+      this.selectedDays = this.value;
+    } else {
+      this.selectedDays = [this.value];
     }
 
-    if ('CloseWatcher' in window) {
-      this.closeWatcher?.destroy();
-      this.closeWatcher = new CloseWatcher();
-      this.closeWatcher.onclose = () => {
-        if (this.open) {
-          this.hide();
-          this.displayInput.focus({ preventScroll: true });
-        }
-      };
-    }
+    const firstCell = this.getFirstDayOfMonthCell();
+    if (firstCell) this.setCurrentCell(firstCell);
+    // else this.setCurrentCell(this.getFirstDayOfMonthCell());
+
+    this.input.updateComplete.then(() => {
+      this.formControlController.updateValidity();
+    });
   }
 
-  private removeOpenListeners() {
-    document.removeEventListener('focusin', this.handleDocumentFocusIn);
-    document.removeEventListener('keydown', this.handleDocumentKeyDown);
-    document.removeEventListener('mousedown', this.handleDocumentMouseDown);
-
-    if (this.getRootNode() !== document) {
-      this.getRootNode().removeEventListener('focusin', this.handleDocumentFocusIn);
-    }
-
-    this.closeWatcher?.destroy();
-  }
-
-  private handleFocus() {
+  private handleFocusIn = () => {
     this.hasFocus = true;
-    this.displayInput.setSelectionRange(0, 0);
+    this.input.setSelectionRange(0, 0);
     this.emit('sl-focus');
-  }
-
-  private handleBlur() {
-    this.hasFocus = false;
-    this.emit('sl-blur');
-  }
-
-  private handleDocumentFocusIn = (event: KeyboardEvent) => {
-    // Close when focusing out of the select
-    const path = event.composedPath();
-    if (this && !path.includes(this)) {
-      this.hide();
-    }
   };
 
-  private handleDocumentKeyDown = (event: KeyboardEvent) => {
-    const target = event.target as HTMLElement;
-    const isClearButton = target.closest('.date-picker__clear') !== null;
-    const isIconButton = target.closest('sl-icon-button') !== null;
+  private handleFocusOut = () => {
+    this.hasFocus = false;
+    this.emit('sl-blur');
+  };
 
-    // Ignore presses when the target is an icon button (e.g. the remove button in <sl-tag>)
-    if (isClearButton || isIconButton) {
+  private getAllCalendarCells(): HTMLButtonElement[] {
+    return [...this.renderRoot.querySelectorAll('.date-picker__day')] as HTMLButtonElement[];
+  }
+
+  private getFirstDayOfMonthCell(): HTMLButtonElement | null {
+    // return new Date(this.date.getFullYear(), this.date.getMonth(), 1).getDay();
+    const allCells = this.getAllCalendarCells();
+    const firstDayOfMonth = new Date(this.calendarDate.getFullYear(), this.calendarDate.getMonth(), 1);
+
+    const firstDayOfMonthCell = allCells.find(el => el.value === this.localize.date(firstDayOfMonth));
+
+    if (firstDayOfMonthCell) {
+      return firstDayOfMonthCell;
+    }
+
+    return allCells[0];
+  }
+
+  private handleDatePickerKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.dropdown.hide();
+      this.trigger.focus();
       return;
     }
 
-    // Close when pressing escape
-    if (event.key === 'Escape' && this.open && !this.closeWatcher) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.hide();
-      this.displayInput.focus({ preventScroll: true });
-    }
+    // if(event.key === "Tab") {
+    //   console.log("tab", event)
+    // }
 
-    // Handle enter and space. When pressing space, we allow for type to select behaviors so if there's anything in the
-    // buffer we _don't_ close it.
-    if (event.key === 'Enter' || (event.key === ' ' && this.typeToSelectString === '')) {
+    if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      // If it's not open, open it
-      if (!this.open) {
-        this.show();
-        return;
+      const oldValue = this.value;
+
+      this.setSelectedDate(new Date(this.currentDay.value));
+
+      if (this.value !== oldValue) {
+        this.emit('sl-change');
+        this.emit('sl-input');
+      }
+    }
+
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      // Prevents scroll
+      event.preventDefault();
+
+      let newDay = 0;
+      switch (event.key) {
+        case 'ArrowLeft':
+          newDay = -1;
+          break;
+        case 'ArrowRight':
+          newDay = 1;
+          break;
+        case 'ArrowDown':
+          newDay = 7;
+          break;
+        case 'ArrowUp':
+          newDay = -7;
+          break;
       }
 
-      // If it is open, update the value based on the current selection and close it
-      if (this.currentOption && !this.currentOption.disabled) {
-        if (this.multiple) {
-          this.toggleOptionSelection(this.currentOption);
-        } else {
-          this.setSelectedOptions(this.currentOption);
-        }
+      const newDate = new Date(this.currentDay.value);
+      newDate.setDate(newDate.getDate() + newDay);
+      const currentMonth = this.calendarDate.getMonth();
+      const currentYear = this.calendarDate.getFullYear();
+      const newMonth = newDate.getMonth();
+      const newYear = newDate.getFullYear();
 
-        // Emit after updating
-        this.updateComplete.then(() => {
-          this.emit('sl-input');
-          this.emit('sl-change');
+      if (newMonth !== currentMonth || newYear !== currentYear) {
+        const monthsDiff = (newYear - currentYear) * 12 + (newMonth - currentMonth);
+        this.addToCalendarMonth(monthsDiff);
+      }
+
+      requestAnimationFrame(() => {
+        const allCells = this.getAllCalendarCells();
+        const targetDate = newDate.getDate();
+        const newCell = allCells.find(cell => {
+          const cellDate = parseInt(cell.innerText);
+          return cellDate === targetDate && !cell.classList.contains('date-picker__day--other-month');
         });
 
-        if (!this.multiple) {
-          this.hide();
-          this.displayInput.focus({ preventScroll: true });
+        if (newCell) {
+          this.setCurrentCell(newCell);
         }
-      }
-
-      return;
-    }
-
-    // Navigate options
-    if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
-      const allOptions = this.getAllOptions();
-      const currentIndex = allOptions.indexOf(this.currentOption);
-      let newIndex = Math.max(0, currentIndex);
-
-      // Prevent scrolling
-      event.preventDefault();
-
-      // Open it
-      if (!this.open) {
-        this.show();
-
-        // If an option is already selected, stop here because we want that one to remain highlighted when the listbox
-        // opens for the first time
-        if (this.currentOption) {
-          return;
-        }
-      }
-
-      if (event.key === 'ArrowDown') {
-        newIndex = currentIndex + 1;
-        if (newIndex > allOptions.length - 1) newIndex = 0;
-      } else if (event.key === 'ArrowUp') {
-        newIndex = currentIndex - 1;
-        if (newIndex < 0) newIndex = allOptions.length - 1;
-      } else if (event.key === 'Home') {
-        newIndex = 0;
-      } else if (event.key === 'End') {
-        newIndex = allOptions.length - 1;
-      }
-
-      this.setCurrentOption(allOptions[newIndex]);
-    }
-
-    // All other "printable" keys trigger type to select
-    if (event.key.length === 1 || event.key === 'Backspace') {
-      const allOptions = this.getAllOptions();
-
-      // Don't block important key combos like CMD+R
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-
-      // Open, unless the key that triggered is backspace
-      if (!this.open) {
-        if (event.key === 'Backspace') {
-          return;
-        }
-
-        this.show();
-      }
-
-      event.stopPropagation();
-      event.preventDefault();
-
-      clearTimeout(this.typeToSelectTimeout);
-      this.typeToSelectTimeout = window.setTimeout(() => (this.typeToSelectString = ''), 1000);
-
-      if (event.key === 'Backspace') {
-        this.typeToSelectString = this.typeToSelectString.slice(0, -1);
-      } else {
-        this.typeToSelectString += event.key.toLowerCase();
-      }
-
-      for (const option of allOptions) {
-        const label = option.getTextLabel().toLowerCase();
-
-        if (label.startsWith(this.typeToSelectString)) {
-          this.setCurrentOption(option);
-          break;
-        }
-      }
-    }
-  };
-
-  private handleDocumentMouseDown = (event: MouseEvent) => {
-    // Close when clicking outside of the select
-    const path = event.composedPath();
-    if (this && !path.includes(this)) {
-      this.hide();
-    }
-  };
-
-  private handleLabelClick() {
-    this.displayInput.focus();
-  }
-
-  private handleComboboxMouseDown(event: MouseEvent) {
-    const path = event.composedPath();
-    const isIconButton = path.some(el => el instanceof Element && el.tagName.toLowerCase() === 'sl-icon-button');
-
-    // Ignore disabled controls and clicks on tags (remove buttons)
-    if (this.disabled || isIconButton) {
-      return;
-    }
-
-    event.preventDefault();
-    this.displayInput.focus({ preventScroll: true });
-    this.open = !this.open;
-  }
-
-  private handleComboboxKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Tab') {
-      return;
-    }
-
-    event.stopPropagation();
-    this.handleDocumentKeyDown(event);
-  }
-
-  private handleClearClick(event: MouseEvent) {
-    event.stopPropagation();
-
-    if (this.value !== '') {
-      this.setSelectedOptions([]);
-      this.displayInput.focus({ preventScroll: true });
-
-      // Emit after update
-      this.updateComplete.then(() => {
-        this.emit('sl-clear');
-        this.emit('sl-input');
-        this.emit('sl-change');
       });
     }
   }
 
-  private handleClearMouseDown(event: MouseEvent) {
-    // Don't lose focus or propagate events when clicking the clear button
-    event.stopPropagation();
+  private handleInputChange(event: SlChangeEvent) {
+    const target = event.target as HTMLInputElement;
+    // const oldValue = this.value;
+    const newValue = target.value;
+
+    console.log('new value', newValue);
+
+    // Prevent the <sl-input>'s sl-change event from bubbling up
+    // event.stopPropagation();
+
+    // this.setValue(newValue.split('|').map(date => new Date(date)));
+    this.value = newValue
+      .split(' – ')
+      .filter(value => value)
+      .map(date => new Date(date));
+
+    // if (this.input.value) {
+    //   if (Array.isArray(this.value)) {
+    //     this.value =
+    //     // target.value = this.value.join('|');
+    //   } else {
+    //     // target.value = this.value.toDateString();
+    //   }
+    // } else {
+    //   this.value = new Date();
+    // }
+
+    // if (newValue !== oldValue) {
+    this.emit('sl-change');
+    this.emit('sl-input');
+    // }
+  }
+
+  private handleInputInput(event: SlInputEvent) {
+    const target = event.target as HTMLInputElement;
+    // const oldValue = this.value;
+    const newDates = target.value.split(' – ').map(date => new Date(date));
+
+    // console.log('new input', newValue);
+    // this.setValue(newValue.split('|').map(date => new Date(date)));A
+
+    const hasValidDates = newDates.every(date => !isNaN(date.getMilliseconds()));
+
+    if (hasValidDates) {
+      this.value = newDates;
+      this.formControlController.updateValidity();
+    }
+
+    // Prevent the <sl-input>'s sl-input event from bubbling up
+    this.emit('sl-change');
+    this.emit('sl-input');
+  }
+
+  private handleInputInvalid(event: Event) {
+    this.formControlController.setValidity(false);
+    this.formControlController.emitInvalidEvent(event);
+  }
+
+  private handleDayMouseDown(event: Event) {
     event.preventDefault();
+
+    const target = event.target as HTMLButtonElement;
+    const day = target.value;
+
+    this.setSelectedDate(new Date(day));
+
+    this.value = this.selectedDays;
+
+    // if (this.value !== oldValue) {
+    this.emit('sl-change');
+    this.emit('sl-input');
+    // }
   }
 
-  private handleOptionClick(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    const option = target.closest('sl-option');
-    const oldValue = this.value;
-
-    if (option && !option.disabled) {
-      if (this.multiple) {
-        this.toggleOptionSelection(option);
-      } else {
-        this.setSelectedOptions(option);
-      }
-
-      // Set focus after updating so the value is announced by screen readers
-      this.updateComplete.then(() => this.displayInput.focus({ preventScroll: true }));
-
-      if (this.value !== oldValue) {
-        // Emit after updating
-        this.updateComplete.then(() => {
-          this.emit('sl-input');
-          this.emit('sl-change');
-        });
-      }
-
-      if (!this.multiple) {
-        this.hide();
-        this.displayInput.focus({ preventScroll: true });
-      }
+  private handleDayMouseOver(event: MouseEvent) {
+    if (this.mode === 'range' && this.isSelectingRange) {
+      const day = event.target as HTMLButtonElement;
+      // this.selectedDays = [this.selectedDays[0], new Date(day.value)]
+      this.currentDay = day;
+      // this.value = this.selectedDays;
     }
   }
 
-  private handleDefaultSlotChange() {
-    const allOptions = this.getAllOptions();
-    const value = Array.isArray(this.value) ? this.value : [this.value];
-    const values: string[] = [];
+  private handlePreviousMonthMouseDown(event: Event) {
+    event.preventDefault();
+    this.addToCalendarMonth(-1);
+    requestAnimationFrame(() => {
+      const foundSelectedDay = this.getAllCalendarCells().find(el =>
+        this.selectedDays.find(date => date.toDateString() === el.value)
+      );
+      if (foundSelectedDay) this.setCurrentCell(foundSelectedDay);
+    });
+  }
 
-    // Check for duplicate values in menu items
-    if (customElements.get('sl-option')) {
-      allOptions.forEach(option => values.push(option.value));
+  private handleNextMonthMouseDown(event: Event) {
+    event.preventDefault();
+    this.addToCalendarMonth(1);
+    requestAnimationFrame(() => {
+      const foundSelectedDay = this.getAllCalendarCells().find(el =>
+        this.selectedDays.find(date => date.toDateString() === el.value)
+      );
+      if (foundSelectedDay) this.setCurrentCell(foundSelectedDay);
+    });
+  }
 
-      // Select only the options that match the new value
-      this.setSelectedOptions(allOptions.filter(el => value.includes(el.value)));
-    } else {
-      // Rerun this handler when <sl-option> is registered
-      customElements.whenDefined('sl-option').then(() => this.handleDefaultSlotChange());
+  private handlePreviousMonthKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.addToCalendarMonth(-1);
     }
   }
 
-  private handleTagRemove(event: SlRemoveEvent, option: SlOption) {
+  private handleNextMonthKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.addToCalendarMonth(1);
+    }
+  }
+
+  private handleMonthButtonGroup(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.addToCalendarMonth(1);
+      this.nextMonth.focus();
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.addToCalendarMonth(-1);
+      this.previousMonth.focus();
+    }
+  }
+
+  private addToCalendarMonth(month: number) {
+    this.calendarDate = new Date(
+      this.calendarDate.getFullYear(),
+      this.calendarDate.getMonth() + month,
+      this.calendarDate.getDate()
+    );
+  }
+
+  private handleAfterShow(event: Event) {
+    event.preventDefault();
+    // const dateString = this.selectedDays[0].toDateString();
+    // const firstCell = this.getAllCalendarCells().find(el => el.value === dateString);
+    // if (firstCell) this.setCurrentCell(firstCell);
+
+    if (this.mode === 'range' && this.selectedDays.length === 1) {
+      this.isSelectingRange = true;
+    }
+  }
+
+  // Prevents nested components from leaking events
+  private stopNestedEventPropagation(event: CustomEvent) {
+    event.stopImmediatePropagation();
+  }
+
+  private handleTagRemove(event: SlRemoveEvent, day: Date) {
     event.stopPropagation();
 
     if (!this.disabled) {
-      this.toggleOptionSelection(option, false);
-
+      this.selectedDays = this.selectedDays.filter(d => d !== day);
+      this.value = this.selectedDays;
       // Emit after updating
       this.updateComplete.then(() => {
         this.emit('sl-input');
@@ -537,218 +490,52 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
     }
   }
 
-  // Gets an array of all <sl-option> elements
-  private getAllOptions() {
-    return [...this.renderRoot.querySelectorAll<SlOption>('sl-option') ?? []];
-  }
+  // @watch('format', { waitUntilFirstUpdate: true })
+  // handleFormatChange(oldValue: string, newValue: string) {
+  //   // console.log(oldValue, newValue);
+  //   // this.syncValues();
+  // }
 
-  // Gets the first <sl-option> element
-  private getFirstOption() {
-    return this.renderRoot.querySelector<SlOption>('sl-option');
-  }
-
-  // Sets the current option, which is the option the user is currently interacting with (e.g. via keyboard). Only one
-  // option may be "current" at a time.
-  private setCurrentOption(option: SlOption | null) {
-    const allOptions = this.getAllOptions();
-
-    // Clear selection
-    allOptions.forEach(el => {
-      el.current = false;
-      el.tabIndex = -1;
-    });
-
-    // Select the target option
-    if (option) {
-      this.currentOption = option;
-      option.current = true;
-      option.tabIndex = 0;
-      option.focus();
-    }
-  }
-
-  // Sets the selected option(s)
-  private setSelectedOptions(option: SlOption | SlOption[]) {
-    const allOptions = this.getAllOptions();
-    const newSelectedOptions = Array.isArray(option) ? option : [option];
-
-    // Clear existing selection
-    allOptions.forEach(el => (el.selected = false));
-
-    // Set the new selection
-    if (newSelectedOptions.length) {
-      newSelectedOptions.forEach(el => (el.selected = true));
-    }
-
-    // Update selection, value, and display label
-    this.selectionChanged();
-  }
-
-  // Toggles an option's selected state
-  private toggleOptionSelection(option: SlOption, force?: boolean) {
-    if (force === true || force === false) {
-      option.selected = force;
-    } else {
-      if (this.selectedOptions.length === 2) {
-        this.setSelectedOptions([]);
-      }
-      option.selected = !option.selected;
-    }
-
-    if (this.isSelectingRange) {
-      this.selectedEndDate = option.value;
-    } else {
-      this.selectedStartDate = option.value;
-      this.selectedEndDate = option.value;
-    }
-
-    this.isSelectingRange = !this.isSelectingRange; 
-
-    this.selectionChanged();
-  }
-
-  // This method must be called whenever the selection changes. It will update the selected options cache, the current
-  // value, and the display value
-  private selectionChanged() {
-    // Update selected options cache
-    this.selectedOptions = this.getAllOptions().filter(el => el.selected);
-
-    // Update the value and display label
-    if (this.multiple) {
-      this.value = this.selectedOptions.map(el => el.value);
-
-      if (this.placeholder && this.value.length === 0) {
-        // When no items are selected, keep the value empty so the placeholder shows
-        this.displayLabel = '';
-      } else {
-        this.displayLabel = this.localize.term('numOptionsSelected', this.selectedOptions.length);
-      }
-    } else {
-      this.value = this.selectedOptions[0]?.value ?? '';
-      this.displayLabel = this.selectedOptions[0]?.getTextLabel() ?? '';
-    }
-
-    // Update validity
-    this.updateComplete.then(() => {
-      this.formControlController.updateValidity();
-    });
-  }
-  protected get tags() {
-    return this.selectedOptions.map((option, index) => {
-      if (index < this.maxOptionsVisible || this.maxOptionsVisible <= 0) {
-        const tag = this.getTag(option, index);
-        // Wrap so we can handle the remove
-        return html`<div @sl-remove=${(e: SlRemoveEvent) => this.handleTagRemove(e, option)}>
-          ${typeof tag === 'string' ? unsafeHTML(tag) : tag}
-        </div>`;
-      } else if (index === this.maxOptionsVisible) {
-        // Hit tag limit
-        return html`<sl-tag size=${this.size}>+${this.selectedOptions.length - index}</sl-tag>`;
-      }
-      return html``;
-    });
-  }
-
-  private handleInvalid(event: Event) {
-    this.formControlController.setValidity(false);
-    this.formControlController.emitInvalidEvent(event);
-  }
-
-  private setCurrentMonth(direction: "next" | "previous") {
-    this.calendarDate = direction === "previous" ?
-      setMonth(this.calendarDate, this.calendarDate.getMonth() - 1) :
-      setMonth(this.calendarDate, this.calendarDate.getMonth() + 1);
-  }
-
-
-
-
-  @watch('disabled', { waitUntilFirstUpdate: true })
-  handleDisabledChange() {
-    // Close the listbox when the control is disabled
-    if (this.disabled) {
-      this.open = false;
-      this.handleOpenChange();
-    }
-  }
-
-  @watch('value', { waitUntilFirstUpdate: true })
+  @watch('value')
   handleValueChange() {
-    const allOptions = this.getAllOptions();
-    const value = Array.isArray(this.value) ? this.value : [this.value];
-
-    // Select only the options that match the new value
-    this.setSelectedOptions(allOptions.filter(el => value.includes(el.value)));
-  }
-
-  @watch('open', { waitUntilFirstUpdate: true })
-  async handleOpenChange() {
-    if (this.open && !this.disabled) {
-      // Reset the current option
-      this.setCurrentOption(this.selectedOptions[0] || this.getFirstOption());
-
-      // Show
-      this.emit('sl-show');
-      this.addOpenListeners();
-
-      await stopAnimations(this);
-      this.listbox.hidden = false;
-      this.popup.active = true;
-
-      // Select the appropriate option based on value after the listbox opens
-      requestAnimationFrame(() => {
-        this.setCurrentOption(this.currentOption);
-      });
-
-      const { keyframes, options } = getAnimation(this, 'select.show', { dir: this.localize.dir() });
-      await animateTo(this.popup.popup, keyframes, options);
-
-      // Make sure the current option is scrolled into view (required for Safari)
-      if (this.currentOption) {
-        scrollIntoView(this.currentOption, this.listbox, 'vertical', 'auto');
-      }
-
-      this.emit('sl-after-show');
+    if (Array.isArray(this.value)) {
+      this.selectedDays = this.value;
+      this.inputValue = this.value.map(d => this.localize.date(d, this.format)).join(' – ');
     } else {
-      // Hide
-      this.emit('sl-hide');
-      this.removeOpenListeners();
-
-      await stopAnimations(this);
-      const { keyframes, options } = getAnimation(this, 'select.hide', { dir: this.localize.dir() });
-      await animateTo(this.popup.popup, keyframes, options);
-      this.listbox.hidden = true;
-      this.popup.active = false;
-
-      this.emit('sl-after-hide');
+      this.inputValue = this.localize.date(this.value, this.format);
+      this.selectedDays = [this.value];
     }
   }
 
-  /** Shows the listbox. */
-  async show() {
-    if (this.open || this.disabled) {
-      this.open = false;
-      return undefined;
-    }
-
-    this.open = true;
-    return waitForEvent(this, 'sl-after-show');
+  /** Sets focus on the color picker. */
+  focus(options?: FocusOptions) {
+    // // if (this.inline) {
+    // //   this.base.focus(options);
+    // // } else {
+    this.trigger.focus(options);
+    // }
   }
 
-  /** Hides the listbox. */
-  async hide() {
-    if (!this.open || this.disabled) {
-      this.open = false;
-      return undefined;
+  /** Removes focus from the color picker. */
+  blur() {
+    const elementToBlur = this.inline ? this.base : this.trigger;
+
+    if (this.hasFocus) {
+      // We don't know which element in the color picker has focus, so we'll move it to the trigger or base (inline) and
+      // blur that instead. This results in document.activeElement becoming the <body>. This doesn't cause another focus
+      // event because we're using focusin and something inside the color picker already has focus.
+      elementToBlur.focus({ preventScroll: true });
+      elementToBlur.blur();
     }
 
-    this.open = false;
-    return waitForEvent(this, 'sl-after-hide');
+    if (this.dropdown?.open) {
+      this.dropdown.hide();
+    }
   }
 
   /** Checks for validity but does not show a validation message. Returns `true` when valid and `false` when invalid. */
   checkValidity() {
-    return this.valueInput.checkValidity();
+    return this.input.checkValidity();
   }
 
   /** Gets the associated form, if one exists. */
@@ -758,289 +545,287 @@ export default class SlDatePicker extends ShoelaceElement implements ShoelaceFor
 
   /** Checks for validity and shows the browser's validation message if the control is invalid. */
   reportValidity() {
-    return this.valueInput.reportValidity();
+    if (!this.inline && !this.validity.valid) {
+      // If the input is inline and invalid, show the dropdown so the browser can focus on it
+      this.dropdown.show();
+      this.addEventListener('sl-after-show', () => this.input.reportValidity(), { once: true });
+
+      if (!this.disabled) {
+        // By standards we have to emit a `sl-invalid` event here synchronously.
+        this.formControlController.emitInvalidEvent();
+      }
+
+      return false;
+    }
+
+    return this.input.reportValidity();
   }
 
   /** Sets a custom validation message. Pass an empty string to restore validity. */
   setCustomValidity(message: string) {
-    this.valueInput.setCustomValidity(message);
+    this.input.setCustomValidity(message);
     this.formControlController.updateValidity();
   }
 
-  /** Sets focus on the control. */
-  focus(options?: FocusOptions) {
-    this.displayInput.focus(options);
-  }
+  private setCurrentCell(cell: HTMLButtonElement | null) {
+    const allCells = this.getAllCalendarCells();
 
-  /** Removes focus from the control. */
-  blur() {
-    this.displayInput.blur();
-  }
+    // Clear selection
+    allCells.forEach(el => {
+      el.tabIndex = -1;
+    });
 
-  renderCalendar() {
-    const monthStart: Date = startOfMonth(this.calendarDate);
-    const monthEnd: Date = endOfMonth(this.calendarDate);
-    const calendarStart = startOfWeek(monthStart);
-    const calendarEnd = endOfWeek(monthEnd);
-
-    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-    // const optionValues = this.selectedOptions.map(o => o.value);
-    // console.log(optionValues)
-    const selectedStartDate = this.selectedStartDate ? parse(this.selectedStartDate, this.dateFormat, new Date()) : null
-
-    const selectedEndDate = this.selectedEndDate ? parse(this.selectedEndDate, this.dateFormat, new Date()) : null
-
-    const onMouseEnter = (e: MouseEvent) => {
-      if (this.isSelectingRange) {
-        const option = e.target as SlOption;
-        this.selectedEndDate = option.value;
-      }
+    // Select the target option
+    if (cell) {
+      this.currentDay = cell;
+      cell.tabIndex = 0;
+      cell.focus();
     }
+  }
+
+  private setSelectedDate(date: Date) {
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    if (this.mode === 'single') {
+      this.selectedDays = [day];
+    } else if (this.mode === 'range') {
+      if (this.isSelectingRange) {
+        this.selectedDays = [this.selectedDays[0], day].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      } else {
+        this.selectedDays = [day];
+      }
+      this.isSelectingRange = !this.isSelectingRange;
+    } else {
+      this.selectedDays.push(day);
+    }
+  }
+
+  // private setValue(date: Date | Date[]) {}
+
+  renderCalendar(currentDate?: Date) {
+    const now = new Date(currentDate ?? this.calendarDate);
+    const sunday = new Date(now.setDate(now.getDate() - now.getDay()));
+
+    const weekdays = Array.from({ length: 7 }, (_, i) => new Date(sunday.getTime()).setDate(sunday.getDate() + i)).map(
+      date => new Date(date)
+    );
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    const firstDayWeekday = new Date(year, month, 1).getDay();
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const lastDayWeekday = new Date(year, month, lastDayOfMonth).getDay();
+
+    const totalDays = firstDayWeekday + lastDayOfMonth + (6 - lastDayWeekday);
+    const weeksNeeded = Math.ceil(totalDays / 7);
+
+    const [firstSelectedDay, lastSelectedDay] = (
+      this.selectedDays.length === 2 ? this.selectedDays : [this.selectedDays[0], this.currentDay?.value]
+    )
+      .map(day => {
+        const date = new Date(day);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      })
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    // Create array with exact number of days needed
+    const daysOfMonth = Array.from({ length: weeksNeeded * 7 }, (_, i) => {
+      const dayIndex = i - firstDayWeekday;
+      const date = new Date(year, month, dayIndex + 1);
+
+      const inRange =
+        this.mode === 'range' &&
+        date.getTime() >= firstSelectedDay?.getTime() &&
+        date.getTime() <= lastSelectedDay?.getTime();
+
+      return {
+        date,
+        dayOfMonth: this.localize.date(date, { day: 'numeric' }),
+        isCurrentMonth: date.getMonth() === month,
+        isToday: new Date().toDateString() === date.toDateString(),
+        weekNumber: Math.floor(i / 7),
+        inRange
+      };
+    });
+
+    // Group days by week
+    const weeks = Array.from({ length: 6 }, (_, weekIndex) => daysOfMonth.filter(day => day.weekNumber === weekIndex));
+
+    // console.log('start date', this.selectedDays[0]?.toDateString());
+    // console.log('end date', this.selectedDays[1]?.toDateString());
 
     return html`
-          ${days.map(day => {
-
-            const isBetweenSelected = selectedStartDate && selectedEndDate && isWithinInterval(day, { start: selectedStartDate, end: selectedEndDate });
-            const isSelected = (selectedStartDate && isEqual(day, selectedStartDate)) || (selectedEndDate && isEqual(day, selectedEndDate));
-
+      <table class="date-picker__calendar" cellpadding="0" cellspacing="0" @keydown=${this.handleDatePickerKeyDown}>
+        <thead>
+          <tr class="date-picker__weekdays">
+            ${weekdays.map(
+              day =>
+                html`<td class="date-picker__weekday">
+                  <sl-format-date weekday="short" date=${day}></sl-format-date>
+                </td>`
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          ${weeks.map(week => {
             return html`
-              <sl-option
-                ?selected=${isSelected}
-                @mouseenter=${onMouseEnter}
-                .value=${format(day, this.dateFormat)}
-                class="date-picker__cell
-                ${isSelected ? 'selected' : ''} 
-                ${isBetweenSelected ? 'in-selected-range' : ''} 
-                ${isToday(day) ? 'today' : ''} 
-                ${!isSameMonth(day, this.calendarDate) ? 'other-month' : ''}
-                "
-              >
-                ${format(day, 'd')}
-            </sl-option>`;
-          }
-          )}
-        </div>
-      `;
-  }
+              <tr class="date-picker__week">
+                ${week.map(day => {
+                  const isSelected =
+                    this.selectedDays.some(selectedDay => selectedDay.toDateString() === day.date.toDateString()) ||
+                    (this.isSelectingRange && day.date.toDateString() === this.currentDay?.value);
 
+                  const isStartOfSelectedRange =
+                    day.inRange && day.date.toDateString() === this.selectedDays[0]?.toDateString();
+
+                  const isEndOfSelectedRange =
+                    day.inRange && day.date.toDateString() === this.selectedDays[1]?.toDateString();
+
+                  return html`
+                    <td>
+                      <button
+                        aria-selected=${isSelected}
+                        class=${classMap({
+                          'date-picker__day': true,
+                          'date-picker__day--selected': isSelected,
+                          'date-picker__day--current-month': day.isCurrentMonth,
+                          'date-picker__day--other-month': !day.isCurrentMonth,
+                          'date-picker__day--today': day.isToday,
+                          'date-picker__day--in-range': day.inRange,
+                          'date-picker__day--in-range-start': isStartOfSelectedRange,
+                          'date-picker__day--in-range-end': isEndOfSelectedRange
+                        })}
+                        value=${day.date.toDateString()}
+                        @mousedown=${this.handleDayMouseDown}
+                        @mouseover=${this.handleDayMouseOver}
+                      >
+                        ${day.dayOfMonth}
+                      </button>
+                    </td>
+                  `;
+                })}
+              </tr>
+            `;
+          })}
+        </tbody>
+      </table>
+    `;
+  }
 
   render() {
-    const hasLabelSlot = this.hasSlotController.test('label');
-    const hasHelpTextSlot = this.hasSlotController.test('help-text');
-    const hasLabel = this.label ? true : !!hasLabelSlot;
-    const hasHelpText = this.helpText ? true : !!hasHelpTextSlot;
-    const hasClearIcon = this.clearable && !this.disabled && this.value.length > 0;
-    const isPlaceholderVisible = this.placeholder && this.value.length === 0;
-    const isLtr = this.matches(':dir(ltr)');
-    const prevEnabled = true;
-    const nextEnabled = true;
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const previousMonth = this.localize.date(
+      new Date(this.calendarDate.getFullYear(), this.calendarDate.getMonth() - 1),
+      { month: 'long' }
+    );
+
+    const nextMonth = new Date(this.calendarDate.getFullYear(), this.calendarDate.getMonth() + 1, 15);
+
+    const nextMonthText = this.localize.date(nextMonth, {
+      month: 'long'
+    });
 
     return html`
-      <div
-        part="form-control"
-        class=${classMap({
-      'form-control': true,
-      'form-control--small': this.size === 'small',
-      'form-control--medium': this.size === 'medium',
-      'form-control--large': this.size === 'large',
-      'form-control--has-label': hasLabel,
-      'form-control--has-help-text': hasHelpText
-    })}
+      <sl-input
+        class="date-picker__input"
+        part="input"
+        type="text"
+        name=${this.name}
+        size=${this.size}
+        label=${this.label}
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+        value=${this.inputValue}
+        ?required=${this.required}
+        ?disabled=${this.disabled}
+        aria-label=${this.localize.term('currentValue')}
+        @change=${this.handleInputChange}
+        @input=${this.handleInputInput}
+        @invalid=${this.handleInputInvalid}
+        @sl-change=${this.stopNestedEventPropagation}
+        @sl-input=${this.stopNestedEventPropagation}
       >
-        <label
-          id="label"
-          part="form-control-label"
-          class="form-control__label"
-          aria-hidden=${hasLabel ? 'false' : 'true'}
-          @click=${this.handleLabelClick}
+        <sl-dropdown
+          slot="suffix"
+          class="date-picker__dropdown"
+          aria-disabled=${this.disabled ? 'true' : 'false'}
+          .containing-element=${this}
+          ?disabled=${this.disabled}
+          hoist
+          @sl-after-show=${this.handleAfterShow}
         >
-          <slot name="label">${this.label}</slot>
-        </label>
-
-        <div part="form-control-input" class="form-control-input">
-          <sl-popup
+          <sl-icon-button
+            slot="trigger"
+            part="trigger"
+            name="calendar"
+            @sl-blur=${this.stopNestedEventPropagation}
+            @sl-focus=${this.stopNestedEventPropagation}
+          ></sl-icon-button>
+          <div
+            part="base"
             class=${classMap({
-      'date-picker': true,
-      'date-picker--standard': true,
-      'date-picker--filled': this.filled,
-      'date-picker--pill': this.pill,
-      'date-picker--open': this.open,
-      'date-picker--disabled': this.disabled,
-      'date-picker--multiple': this.multiple,
-      'date-picker--focused': this.hasFocus,
-      'date-picker--placeholder-visible': isPlaceholderVisible,
-      'date-picker--top': this.placement === 'top',
-      'date-picker--bottom': this.placement === 'bottom',
-      'date-picker--small': this.size === 'small',
-      'date-picker--medium': this.size === 'medium',
-      'date-picker--large': this.size === 'large'
-    })}
-            placement=${this.placement}
-            strategy=${this.hoist ? 'fixed' : 'absolute'}
-            flip
-            shift
-            auto-size="vertical"
-            auto-size-padding="10"
+              'date-picker': true,
+              'date-picker--inline': this.inline,
+              'date-picker--disabled': this.disabled,
+              'date-picker--focused': this.hasFocus
+            })}
+            aria-disabled=${this.disabled ? 'true' : 'false'}
+            aria-labelledby="label"
           >
             <div
-              part="combobox"
-              class="date-picker__combobox"
-              slot="anchor"
-              @keydown=${this.handleComboboxKeyDown}
-              @mousedown=${this.handleComboboxMouseDown}
+              class=${classMap({
+                'date-picker__header': true,
+                'date-picker__header--dual': this.dual
+              })}
             >
-              <slot part="prefix" name="prefix" class="date-picker__prefix"></slot>
+              <sl-format-date
+                class="date-picker__month-year-header"
+                month="long"
+                year="numeric"
+                date=${this.calendarDate}
+              ></sl-format-date>
 
-              <input
-                part="display-input"
-                class="date-picker__display-input"
-                type="text"
-                placeholder=${this.placeholder}
-                .disabled=${this.disabled}
-                .value=${this.displayLabel}
-                autocomplete="off"
-                spellcheck="false"
-                autocapitalize="off"
-                readonly
-                aria-controls="listbox"
-                aria-expanded=${this.open ? 'true' : 'false'}
-                aria-haspopup="listbox"
-                aria-labelledby="label"
-                aria-disabled=${this.disabled ? 'true' : 'false'}
-                aria-describedby="help-text"
-                role="combobox"
-                tabindex="0"
-                @focus=${this.handleFocus}
-                @blur=${this.handleBlur}
-              />
-
-              ${this.multiple ? html`<div part="tags" class="date-picker__tags">${this.tags}</div>` : ''}
-
-              <input
-                class="date-picker__value-input"
-                type="text"
-                ?disabled=${this.disabled}
-                ?required=${this.required}
-                .value=${Array.isArray(this.value) ? this.value.join(', ') : this.value}
-                tabindex="-1"
-                aria-hidden="true"
-                @focus=${() => this.focus()}
-                @invalid=${this.handleInvalid}
-              />
-
-              ${hasClearIcon
-        ? html`
-                    <button
-                      part="clear-button"
-                      class="date-picker__clear"
-                      type="button"
-                      aria-label=${this.localize.term('clearEntry')}
-                      @mousedown=${this.handleClearMouseDown}
-                      @click=${this.handleClearClick}
-                      tabindex="-1"
-                    >
-                      <slot name="clear-icon">
-                        <sl-icon name="x-circle-fill" library="system"></sl-icon>
-                      </slot>
-                    </button>
+              ${this.dual
+                ? html`
+                    <sl-format-date
+                      class="date-picker__month-year-header"
+                      month="long"
+                      year="numeric"
+                      date=${nextMonth}
+                    ></sl-format-date>
                   `
-        : ''}
+                : ''}
 
-              <slot name="suffix" part="suffix" class="date-picker__suffix"></slot>
-
-              <slot name="expand-icon" part="expand-icon" class="date-picker__expand-icon">
-                <sl-icon library="system" name="chevron-down"></sl-icon>
-              </slot>
+              <sl-button-group class="month-button-group" @keydown=${this.handleMonthButtonGroup}>
+                <sl-icon-button
+                  name="chevron-up"
+                  class="date-picker__previous-month"
+                  label=${previousMonth}
+                  @mousedown=${this.handlePreviousMonthMouseDown}
+                  @keydown=${this.handlePreviousMonthKeyDown}
+                  @sl-focus=${this.stopNestedEventPropagation}
+                  @sl-blur=${this.stopNestedEventPropagation}
+                ></sl-icon-button>
+                <sl-icon-button
+                  name="chevron-down"
+                  class="date-picker__next-month"
+                  label=${nextMonthText}
+                  @mousedown=${this.handleNextMonthMouseDown}
+                  @keydown=${this.handleNextMonthKeyDown}
+                  @sl-focus=${this.stopNestedEventPropagation}
+                  @sl-blur=${this.stopNestedEventPropagation}
+                ></sl-icon-button>
+              </sl-button-group>
             </div>
-
-        <div class="date-picker__header">
-          <button
-          part="navigation-button navigation-button--previous"
-          class="${classMap({
-          'date-picker__navigation-button': true,
-          'date-picker__navigation-button--previous': true,
-          'date-picker__navigation-button--disabled': !prevEnabled
-        })}"
-          aria-label="${this.localize.term('previousSlide')}"
-          aria-controls="scroll-container"
-          aria-disabled="${prevEnabled ? 'false' : 'true'}"
-          @click=${prevEnabled ? () => this.setCurrentMonth("previous") : null}
-          >
-            <slot name="previous-icon">
-              <sl-icon library="system" name="${isLtr ? 'chevron-left' : 'chevron-right'}"></sl-icon>
-            </slot>
-        
-        </button>
-
-          ${format(this.calendarDate, 'MMM yy')}
-
-          <button
-            part="navigation-button navigation-button--next"
-            class=${classMap({
-          'date-picker__navigation-button': true,
-          'date-picker__navigation-button--next': true,
-          'date-picker__navigation-button--disabled': !nextEnabled
-        })}
-            aria-label="${this.localize.term('nextSlide')}"
-            aria-controls="scroll-container"
-            aria-disabled="${nextEnabled ? 'false' : 'true'}"
-            @click=${nextEnabled ? () => this.setCurrentMonth("next") : null}
-          >
-            <slot name="next-icon">
-              <sl-icon library="system" name="${isLtr ? 'chevron-right' : 'chevron-left'}"></sl-icon>
-            </slot>
-          </button>
-        </div>
-        <div class="date-picker__weekday-row">
-          ${weekdays.map(day => html`<div class="date-picker__weekday-header">${day}</div>`)}
-        </div>
-            <div
-              id="listbox"
-              role="listbox"
-              aria-expanded=${this.open ? 'true' : 'false'}
-              aria-multiselectable=${this.multiple ? 'true' : 'false'}
-              aria-labelledby="label"
-              part="listbox"
-              class="date-picker__listbox"
-              tabindex="-1"
-              @mouseup=${this.handleOptionClick}
-              @slotchange=${this.handleDefaultSlotChange}
-            >
-            ${this.renderCalendar()}
-              <!-- <slot></slot> -->
-
+            <div class="date-picker__calendar-wrapper">
+              ${this.renderCalendar()} ${this.dual ? this.renderCalendar(nextMonth) : ''}
             </div>
-          </sl-popup>
-        </div>
-
-        <div
-          part="form-control-help-text"
-          id="help-text"
-          class="form-control__help-text"
-          aria-hidden=${hasHelpText ? 'false' : 'true'}
-        >
-          <slot name="help-text">${this.helpText}</slot>
-        </div>
-      </div>
+            <slot name="footer"></slot>
+          </div>
+        </sl-dropdown>
+      </sl-input>
     `;
   }
 }
-
-setDefaultAnimation('date-picker.show', {
-  keyframes: [
-    { opacity: 0, scale: 0.9 },
-    { opacity: 1, scale: 1 }
-  ],
-  options: { duration: 100, easing: 'ease' }
-});
-
-setDefaultAnimation('date-picker.hide', {
-  keyframes: [
-    { opacity: 1, scale: 1 },
-    { opacity: 0, scale: 0.9 }
-  ],
-  options: { duration: 100, easing: 'ease' }
-});
-
